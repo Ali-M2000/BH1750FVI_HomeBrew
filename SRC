@@ -1,0 +1,88 @@
+/*
+BH1750FVI Visible Light Intensity Sensor With 16-bit ADC
+Ali.M
+*/
+
+#include <Wire.h>
+
+//const uint8_t address = 0b1011100; // ADO: HIGH(NO MORE THAN 3.3v)
+const uint8_t address = 0b0100011; // ADO: LOW(normally pulled down on the board)
+
+//commands:
+const uint8_t power_off = 0b00000000;
+const uint8_t power_on = 0b00000001; 
+const uint8_t reset = 0b00000111; 
+const uint8_t continuous_1lx = 0b00010000; // 120ms wait
+const uint8_t continuous_halflx = 0b00010001; // 120ms wait
+const uint8_t continuous_4lx = 0b00010011; // 16ms wait
+const uint8_t once_1lx = 0b00100000; // 120ms wait
+const uint8_t once_halflx = 0b00100001; // 120ms wait
+const uint8_t once_4lx = 0b00100011; // 16ms wait
+// Changing multiplier values is explained in datasheet
+
+void setup() {
+
+  bool s=0;
+
+  delay(2000);
+  Serial.begin(9600);
+  Wire.begin();  
+  delay(100);
+
+  while(!s) {
+
+    Wire.beginTransmission(address);
+    s=!Wire.endTransmission();   
+    Serial.print("Sensor ACK: ");
+    Serial.println(s); // 1 if ack
+
+    if(s){
+
+      Wire.beginTransmission(address);
+      Wire.write(power_on);
+      s=!Wire.endTransmission();
+      Serial.print("Power-On: ");
+      Serial.println(s); // 1 if ack
+    
+      if(s) {
+        Wire.beginTransmission(address);
+        Wire.write(reset);
+        s=!Wire.endTransmission();
+        Serial.print("Reset: ");
+        Serial.println(s); // 1 if ack
+        delay(10);
+        
+        if(s){
+            Wire.beginTransmission(address);
+            Wire.write(continuous_1lx);
+            s=!Wire.endTransmission();
+            Serial.print("Measurement Start: ");
+            Serial.println(s); // 1 if ack
+        } else {s=0;}
+      } else {s=0;}
+    }
+
+    delay(100);       
+  }
+}
+
+unsigned long t=millis()+200;
+
+void loop() {
+
+  uint8_t buff[2];
+  static uint16_t lx;
+
+  if(t<millis()) {
+    t+=200;
+    
+    Wire.requestFrom(address, 2);
+    if(Wire.available()) {
+      Wire.readBytes(buff,2);
+    }
+    lx=(((float)buff[0])*256.0+((float)buff[1]))*0.3+lx*0.7;
+
+    Serial.println(lx);
+  }
+
+}
